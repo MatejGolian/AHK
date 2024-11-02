@@ -4,21 +4,17 @@ Class FileDownload {
     
     CurrentSize := 0
     DestinationFile := ""
+    DialogGUI := Object()
+    DialogTitle := "File Download"
     DownloadSize := 0
     DownloadURL := ""
-    Overwrite := True
     PercentComplete := 0
-    ProgressBar := True
-    ProgressBarGui := Object()
-    Title := "File Download"
     
-    __New(DownloadURL, DestinationFile, Overwrite := True, ProgressBar := True, Title := False) {
+    __New(DownloadURL, DestinationFile, DialogTitle := False) {
         This.DestinationFile := DestinationFile
         This.DownloadURL := DownloadURL
-        This.Overwrite := Overwrite
-        This.ProgressBar := ProgressBar
-        If Title
-        This.Title := Title
+        If DialogTitle
+        This.DialogTitle := DialogTitle
         This.DownloadSize := This.GetDownloadSize()
     }
     
@@ -26,19 +22,20 @@ Class FileDownload {
         ExitApp
     }
     
-    DestroyProgressBar() {
-        If This.ProgressBarGui Is Gui {
-            This.ProgressBarGui.Destroy()
-            This.ProgressBarGui := Object()
+    DestroyDialog() {
+        If This.DialogGUI Is Gui {
+            This.DialogGUI.Destroy()
+            This.DialogGUI := Object()
         }
     }
     
-    DisplayProgressBar() {
-        This.ProgressBarGui := Gui(, This.Title)
-        This.ProgressBarGui.AddProgress("Section vDownloadProgress")
-        This.ProgressBarGui.AddText("XS vDownloadSpeed", "Speed: 0 Kb/s")
-        This.ProgressBarGui.AddButton("Section XS", "Cancel").OnEvent("Click", ObjBindMethod(This, "Cancel"))
-        This.ProgressBarGui.Show()
+    DisplayDialog() {
+        This.DialogGUI := Gui(, This.DialogTitle)
+        This.DialogGUI.AddProgress("Section vDownloadProgress")
+        This.DialogGUI.AddText("Section XS", "Speed:")
+        This.DialogGUI.AddText("XS vDownloadSpeed", "0 B/s")
+        This.DialogGUI.AddButton("Section XS", "Cancel").OnEvent("Click", ObjBindMethod(This, "Cancel"))
+        This.DialogGUI.Show()
     }
     
     GetCurrentSize() {
@@ -60,36 +57,45 @@ Class FileDownload {
     }
     
     Start() {
-        If Not This.Overwrite And FileExist(This.DestinationFile) And Not InStr(FileExist(This.DestinationFile), "D")
-        Return
-        This.CurrentSize := 0
-        This.PercentComplete := 0
-        If This.ProgressBar
-        This.DisplayProgressBar()
-        SetTimer ObjBindMethod(This, "UpdateProgress"), 100
-        Download This.DownloadURL, This.DestinationFile
-        SetTimer ObjBindMethod(This, "UpdateProgress"), 0
-        If This.ProgressBar
-        This.DestroyProgressBar()
-        This.CurrentSize := This.GetCurrentSize()
-        If This.CurrentSize = This.DownloadSize
-        This.PercentComplete := 100
+        If This.DownloadSize And This.DownloadSize > 0 {
+            This.CurrentSize := 0
+            This.PercentComplete := 0
+            This.DisplayDialog()
+            SetTimer ObjBindMethod(This, "UpdateDialog"), 250
+            Download This.DownloadURL, This.DestinationFile
+            SetTimer ObjBindMethod(This, "UpdateDialog"), 0
+            This.DestroyDialog()
+            This.CurrentSize := This.GetCurrentSize()
+            If This.CurrentSize = This.DownloadSize
+            This.PercentComplete := 100
+        }
         ExitApp
     }
     
-    UpdateProgress() {
+    UpdateDialog() {
+        Critical
         Static CurrentSizeTick := 0, PreviousSizeTick := 0
         PreviousSize := This.CurrentSize
         This.CurrentSize := This.GetCurrentSize()
         CurrentSizeTick := A_TickCount
-        DownloadSpeed := Round((This.CurrentSize / 1024 - PreviousSize / 1024) / ((CurrentSizeTick - PreviousSizeTick) / 1000)) . " Kb/s"
+        DownloadSpeed := AutoByteFormat((This.CurrentSize - PreviousSize) / ((CurrentSizeTick - PreviousSizeTick) / 1000)) . "/s"
         PreviousSizeTick := CurrentSizeTick
-        If This.DownloadSize And This.DownloadSize > 0
         This.PercentComplete := Round(This.CurrentSize / This.DownloadSize * 100)
         Try
-        If This.ProgressBar And This.ProgressBarGui Is Gui {
-            This.ProgressBarGui["DownloadProgress"].Value := This.PercentComplete
-            This.ProgressBarGui["DownloadSpeed"].Value := "Speed: " . DownloadSpeed
+        If This.DialogGUI Is Gui {
+            This.DialogGUI["DownloadProgress"].Value := This.PercentComplete
+            This.DialogGUI["DownloadSpeed"].Value := DownloadSpeed
+        }
+        AutoByteFormat(Size, DecimalPlaces := 2) {
+            Static Size1 := "KB", Size2 := "MB", Size3 := "GB", Size4 := "TB"
+            SizeIndex := 0
+            While Size >= 1024 {
+                SizeIndex++
+                Size /= 1024.0
+                If SizeIndex = 4
+                Break
+            }
+            Return (SizeIndex = 0) ? Size " byte" . (Size != 1 ? "s" : "") : round(Size, DecimalPlaces) . " " . Size%SizeIndex%
         }
     }
     
