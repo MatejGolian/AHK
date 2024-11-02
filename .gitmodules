@@ -1,0 +1,6 @@
+[submodule "ReaHotkey"]
+	path = ReaHotkey
+	url = https://github.com/MatejGolian/ReaHotkey
+[submodule "AccessibilityOverlay"]
+	path = AccessibilityOverlay
+	url = https://github.com/MatejGolian/AccessibilityOverlay
