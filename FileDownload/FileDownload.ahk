@@ -37,12 +37,16 @@ Class FileDownload {
     
     DisplayDialog() {
         This.DialogGUI := GUI(, This.DialogTitle)
+        This.DialogGUI.OnEvent("Close", ObjBindMethod(This, "Cancel"))
+        This.DialogGUI.OnEvent("Escape", ObjBindMethod(This, "Cancel"))
         This.DialogGUI.AddProgress("Section vDownloadProgress")
-        This.DialogGUI.AddText("Section W50", "Downloaded")
+        This.DialogGUI.AddText("Section W100", "Downloaded")
         This.DialogGUI.AddText("W450 YS vDownloadRatio", "0 B of " . This.FormatSize(This.DownloadSize))
-        This.DialogGUI.AddText("Section W50", "Speed:")
+        This.DialogGUI.AddText("Section W100", "Speed")
         This.DialogGUI.AddText("W450 YS vDownloadSpeed", "0 B/s")
-        This.DialogGUI.AddButton("Section XS", "Cancel").OnEvent("Click", ObjBindMethod(This, "Cancel"))
+        This.DialogGUI.AddText("Section W100", "Time remaining")
+        This.DialogGUI.AddText("W450 YS vTimeRemaining", "∞")
+        This.DialogGUI.AddButton("Default Section XS", "Cancel").OnEvent("Click", ObjBindMethod(This, "Cancel"))
         This.DialogGUI.Show()
     }
     
@@ -67,6 +71,15 @@ Class FileDownload {
             Size .= "0"
         }
         Return Size . " " . Units[Index]
+    }
+    
+    FormatTime(Seconds) {
+        Time := 19990101
+        Time := DateAdd(Time, Seconds, "Seconds")
+        Hrs := Seconds // 3600
+        Mins := FormatTime(Time, "m")
+        Secs := FormatTime(Time, "s")
+        Return Trim((Hrs = 0 ? "" : Hrs . " h ") . (Mins = 0 ? "" : Mins . " m ") . (Hrs = 0 And Mins = 0 ? Secs . " s" : (Secs = 0 ? "" : Secs . " s")))
     }
     
     GetCurrentSize() {
@@ -106,27 +119,37 @@ Class FileDownload {
     }
     
     UpdateStatus() {
-        Static CurrentSizeTick := 0, FormattedDownloadSize := This.FormatSize(This.DownloadSize), PreviousSize := This.CurrentSize, PreviousSizeTick := 0, SizeIncrease := 0
+        Static CurrentSizeTick := 0, DownloadSpeed := 0, FormattedDownloadSize := This.FormatSize(This.DownloadSize), FormattedTimeRemaining := "∞", PreviousSize := This.CurrentSize, PreviousSizeTick := 0
         TickCount := A_TickCount
         CurrentSizeTick := TickCount
         If PreviousSizeTick = 0
         PreviousSizeTick := TickCount
         This.CurrentSize := This.GetCurrentSize()
         FormattedCurrentSize := This.FormatSize(This.CurrentSize)
-        If CurrentSizeTick = PreviousSizeTick
-        SizeIncrease := This.CurrentSize
+        If CurrentSizeTick = PreviousSizeTick {
+            DownloadSpeed := This.CurrentSize
+            FormatTimeRemaining()
+        }
         Else
         If CurrentSizeTick >= PreviousSizeTick + 1000 {
-            SizeIncrease := This.CurrentSize - PreviousSize
+            DownloadSpeed := This.CurrentSize - PreviousSize
             PreviousSize := This.CurrentSize
             PreviousSizeTick := CurrentSizeTick
+            FormatTimeRemaining()
         }
         This.PercentComplete := Round(This.CurrentSize / This.DownloadSize * 100)
-        DownloadSpeed := This.FormatSize(SizeIncrease) . "/s"
+        FormattedSpeed := This.FormatSize(DownloadSpeed) . "/s"
         If This.DialogGUI Is GUI {
             This.DialogGUI["DownloadProgress"].Value := This.PercentComplete
             This.DialogGUI["DownloadRatio"].Value := FormattedCurrentSize . " of " . FormattedDownloadSize
-            This.DialogGUI["DownloadSpeed"].Value := DownloadSpeed
+            This.DialogGUI["DownloadSpeed"].Value := FormattedSpeed
+            This.DialogGUI["TimeRemaining"].Value := FormattedTimeRemaining
+        }
+        FormatTimeRemaining() {
+            If DownloadSpeed = 0
+            FormattedTimeRemaining := "∞"
+            Else
+            FormattedTimeRemaining := This.FormatTime(Round(((This.DownloadSize - This.CurrentSize) * 8) / (DownloadSpeed * 8)))
         }
     }
     
