@@ -132,7 +132,7 @@ Class FileDownload {
         }
         Else
         If CurrentSizeTick >= PreviousSizeTick + 1000 {
-            DownloadSpeed := This.CurrentSize - PreviousSize
+            DownloadSpeed := (This.CurrentSize - PreviousSize) / Round((CurrentSizeTick - PreviousSizeTick) / 1000)
             PreviousSize := This.CurrentSize
             PreviousSizeTick := CurrentSizeTick
             FormatTimeRemaining()
